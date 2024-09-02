@@ -133,23 +133,36 @@ function calculateForm(lastTwoGames) {
   let formFactor = 1;
 
   lastTwoGames.forEach((game) => {
-    if (game.outcome === "win") {
-      formFactor += 0.1;
-    } else {
-      formFactor -= 0.1;
+    if (game.outcome === "win" && game.pointsDifferenceInGame > 10) {
+      formFactor += 0.08;
     }
 
-    formFactor += game.pointsDifferenceInGame * 0.01;
+    if (game.outcome === "win" && game.pointsDifferenceInGame < 10) {
+      formFactor += 0.04;
+    }
 
-    // Postavio sam ovaj uslov jer u "exibitions.json", Brazil je odigrao mec sa ekipom ciji je property "Opponent": "POR", a taj kod ne postoji medju ISOCode-ovima u "groups.json"
-    if (game.opponentRanking) {
-      if (game.opponentRanking < 5) {
-        // beating higher ranked team is more significant
-        formFactor += 0.01;
-      } else {
-        // beating lower ranked team is less significant
-        formFactor += 0.05;
-      }
+    if (game.outcome === "lose" && Math.abs(game.pointsDifferenceInGame) > 10) {
+      formFactor -= 0.08;
+    }
+
+    if (game.outcome === "lose" && Math.abs(game.pointsDifferenceInGame) < 10) {
+      formFactor -= 0.04;
+    }
+
+    if (game.outcome === "win" && game.opponentRanking < 5) {
+      formFactor += 0.1;
+    }
+
+    if (game.outcome === "win" && game.opponentRanking > 5) {
+      formFactor += 0.05;
+    }
+
+    if (game.outcome === "lose" && game.opponentRanking < 5) {
+      formFactor -= 0.05;
+    }
+
+    if (game.outcome === "lose" && game.opponentRanking > 5) {
+      formFactor -= 0.1;
     }
   });
 
@@ -206,7 +219,7 @@ function simulateMatch(team1, team2, group, isGroupMatch = true) {
     scoreTeam1++;
 
   if (isGroupMatch) {
-    // RESENJE - PRIKAZATI REZULTATE PO GRUPAMA
+    // PRIKAZATI REZULTATE PO GRUPAMA
     console.log(
       `${team1.teamName} - ${team2.teamName} (${Math.floor(
         scoreTeam1
@@ -219,16 +232,16 @@ function simulateMatch(team1, team2, group, isGroupMatch = true) {
       team1.teamName,
       Math.floor(scoreTeam1),
       team2.teamName,
-      Math.floor(scoreTeam2)
-      // team2.FIBARanking
+      Math.floor(scoreTeam2),
+      team2.FIBARanking
     );
     updateTeamStats(
       group,
       team2.teamName,
       Math.floor(scoreTeam2),
       team1.teamName,
-      Math.floor(scoreTeam1)
-      // team1.FIBARanking
+      Math.floor(scoreTeam1),
+      team1.FIBARanking
     );
   } else {
     return {
@@ -245,7 +258,8 @@ function updateTeamStats(
   teamName,
   pointsScored,
   opponent,
-  pointsReceived
+  pointsReceived,
+  opponentRanking
 ) {
   // Find the exact team
   const team = groupsExpanded[group].find((t) => t.teamName === teamName);
@@ -262,6 +276,13 @@ function updateTeamStats(
       pointsReceived,
       pointsDifferenceInMatch: pointsScored - pointsReceived,
     });
+    team.lastTwoGames.push({
+      outcome: pointsScored > pointsReceived ? "win" : "lose",
+      pointsDifferenceInGame: pointsScored - pointsReceived,
+      opponentRanking,
+    });
+
+    team.lastTwoGames.splice(0, 1);
 
     if (pointsScored > pointsReceived) {
       team.wins++;
@@ -374,7 +395,9 @@ function simulateKnockoutStage(advancingTeams) {
 
   console.log("Sesiri:");
   Object.keys(pots).forEach((pot) => {
-    console.log(`Sesir ${pot}: `, pots[pot][0].teamName, pots[pot][1].teamName);
+    console.log(
+      `Sesir ${pot}: ${pots[pot][0].teamName}, ${pots[pot][1].teamName}`
+    );
   });
 
   // Draw and simulate quarterfinal matches
